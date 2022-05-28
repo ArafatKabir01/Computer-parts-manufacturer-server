@@ -25,44 +25,91 @@ async function run() {
             res.send(parts)
         })
 
-        app.post('/parts', async(req,res)=>{
+        app.post('/parts', async (req, res) => {
             const newProduct = req.body;
             const result = await partsCollection.insertOne(newProduct);
             res.send(result);
-      
-          })
 
-          app.put('/parts/:id', async(req, res) =>{
+        })
+
+        app.put('/parts/:id', async (req, res) => {
             const id = req.params.id;
             const updatedProduct = req.body;
             console.log(req.body);
-            const filter = {_id: ObjectId(id)};
+            const filter = { _id: ObjectId(id) };
             const options = { upsert: true };
             const updatedDoc = {
                 $set: {
                     quantity: updatedProduct.quantity,
-                    
-                    }
-                };
-                const result = await partsCollection.updateOne(filter, updatedDoc, options);
-                res.send(result);
-    
-            })
 
-            app.get('/order/:id', async(req , res)=>{
-                const id = req.params.id;
-                const query ={_id: ObjectId(id)}
-                const result = await partsCollection.findOne(query)
-                res.send(result)
-          
-          
-              })
+                }
+            };
+            const result = await partsCollection.updateOne(filter, updatedDoc, options);
+            res.send(result);
+
+        })
+
+        app.get('/order/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await partsCollection.findOne(query)
+            res.send(result)
+
+
+
+
+        })
     }
     finally {
 
     }
+    async function order() {
+        try {
+            await client.connect();
+            const orderCollection = client.db('partsOrder').collection('order');
+            app.get('/orderParts', async (req, res) => {
+                const query = {};
+                const cursor = orderCollection.find(query);
+                const order = await cursor.toArray();
+                res.send(order)
+            })
+
+            //post
+            app.post('/userorder', async (req, res) => {
+                const newProduct = req.body;
+                const result = await orderCollection.insertOne(newProduct);
+                res.send(result);
+
+            })
+            app.get('/myorders', async (req, res) => {
+                const email = req.query.email;
+                const query = { email: email }
+                const orders = await orderCollection.find(query).toArray();
+                res.send(orders)
+            })
+            //Delete
+            app.delete('/orderParts/:id', async (req, res) => {
+                const id = req.params.id;
+                const query = { _id: ObjectId(id) }
+                const result = await orderCollection.deleteOne(query)
+                res.send(result)
+
+
+            })
+
+
+
+        }
+        finally {
+
+        }
+    }
+    order().catch(console.dir)
 }
 run().catch(console.dir)
+
+
+
 
 
 
