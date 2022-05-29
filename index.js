@@ -88,7 +88,7 @@ async function run() {
                 $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: 60 * 60 })
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET)
             res.send({ result, token });
         })
 
@@ -114,6 +114,15 @@ async function run() {
             res.send(result);
       
           })
+          app.delete('/allProduct/:id', async (req, res) => {
+            const id = req.params.id;
+            const query = { _id: ObjectId(id) }
+            const result = await partsCollection.deleteOne(query)
+            res.send(result)
+
+
+        })
+ 
 
     }
     finally {
@@ -131,17 +140,11 @@ async function run() {
             })
 
             //post
-            app.post('/userorder', verifyJWT, async (req, res) => {
+            app.post('/userorder', async (req, res) => {
                 const newProduct = req.body;
-                if (newProduct === decodedEmail) {
                     const result = await orderCollection.insertOne(newProduct);
                     res.send(result);
-                }
-                else {
-                    return res.status(403).send({ message: 'forbidden access' });
-                }
-                const result = await orderCollection.insertOne(newProduct);
-                res.send(result);
+                
 
             })
             app.get('/myorders', async (req, res) => {
