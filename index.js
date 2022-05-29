@@ -15,11 +15,28 @@ app.use(express.json())
 
 const uri = `mongodb+srv://${process.env.USER_NAME}:${process.env.USER_PASSWORD}@computerbuilder.xsiecyw.mongodb.net/?retryWrites=true&w=majority`;
 const client = new MongoClient(uri, { useNewUrlParser: true, useUnifiedTopology: true, serverApi: ServerApiVersion.v1 });
+
+function verifyJWT(req, res, next) {
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        return res.status(401).send({ message: 'UnAuthorized access' });
+    }
+    const token = authHeader.split(' ')[1];
+    jwt.verify(token, process.env.ACCESS_TOKEN_SECRET, function (err, decoded) {
+        if (err) {
+            return res.status(403).send({ message: 'Forbidden access' })
+        }
+        req.decoded = decoded;
+        next();
+    });
+}
+
 async function run() {
     try {
         await client.connect();
         const partsCollection = client.db('computerBuild').collection('parts');
         const userCollection = client.db('computerBuild').collection('users');
+        const reviewCollection = client.db('computerBuild').collection('reviews');
         app.get('/parts', async (req, res) => {
             const query = {};
             const cursor = partsCollection.find(query);
@@ -68,11 +85,34 @@ async function run() {
             const filter = { email: email };
             const options = { upsert: true };
             const updateDoc = {
-              $set: user,
+                $set: user,
             };
             const result = await userCollection.updateOne(filter, updateDoc, options);
-            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: '1h' })
-            res.send({ result , token});
+            const token = jwt.sign({ email: email }, process.env.ACCESS_TOKEN_SECRET, { expiresIn: 60 * 60 })
+            res.send({ result, token });
+        })
+
+        app.get('/user' , async(req , res)=>{
+            const query = {};
+            const cursor = userCollection.find(query);
+            const parts = await cursor.toArray();
+            res.send(parts)
+
+
+        })
+        app.get('/reviews' , async(req , res)=>{
+            const query = {};
+            const cursor = reviewCollection.find(query);
+            const parts = await cursor.toArray();
+            res.send(parts)
+
+
+        })
+        app.post('/review', async(req,res)=>{
+            const newProduct = req.body;
+            const result = await reviewCollection.insertOne(newProduct);
+            res.send(result);
+      
           })
 
     }
@@ -91,14 +131,23 @@ async function run() {
             })
 
             //post
-            app.post('/userorder', async (req, res) => {
+            app.post('/userorder', verifyJWT, async (req, res) => {
                 const newProduct = req.body;
+                if (newProduct === decodedEmail) {
+                    const result = await orderCollection.insertOne(newProduct);
+                    res.send(result);
+                }
+                else {
+                    return res.status(403).send({ message: 'forbidden access' });
+                }
                 const result = await orderCollection.insertOne(newProduct);
                 res.send(result);
 
             })
             app.get('/myorders', async (req, res) => {
                 const email = req.query.email;
+                const athoraization = req.headers.authorization
+                console.log(athoraization)
                 const query = { email: email }
                 const orders = await orderCollection.find(query).toArray();
                 res.send(orders)
